@@ -15,7 +15,7 @@ public class FloodlightClient {
 	private String controllerIp;
 	
 	//	constructor
-	FloodlightClient(String ip){
+	public FloodlightClient(String ip){
 		this.controllerIp = ip;
 	}
 	
@@ -38,20 +38,6 @@ public class FloodlightClient {
 	//	"dpid" in a JSONObject information may be the most important
 	public JSONArray getSwitchesInformations() throws MalformedURLException, JSONException, IOException, RuntimeException{
 		return new JSONArray(RestUtils.doGet("http://" + controllerIp + ":8080/wm/core/controller/switches/json"));
-	}
-	
-	public ArrayList<String> getSwitchesDPIDs() throws MalformedURLException, JSONException, IOException, RuntimeException{
-		ArrayList<String> result;
-		JSONArray allSwitchInformations;
-		
-		result = new ArrayList<String>(); 
-		allSwitchInformations = getSwitchesInformations();
-		
-		for(int i=0; i<allSwitchInformations.length(); i++){
-			result.add(allSwitchInformations.getJSONObject(i).getString("dpid"));
-		}
-		
-		return result;
 	}
 	
 	//	/wm/core/counter/<counterTitle>/json
@@ -87,6 +73,12 @@ public class FloodlightClient {
 	//	/wm/topology/links/json
 	public JSONArray getDirectTunnelLinks() throws MalformedURLException, IOException, RuntimeException, JSONException{
 		return new JSONArray(RestUtils.doGet("http://" + controllerIp + ":8080/wm/topology/links/json")); 
+	}
+	
+	//	/wm/topology/route
+	//	not list in REST API page, but appears in CircuitPusher.py 
+	public JSONArray getRoute(String srcSwitchDPID, int srcPort, String dstSwitchDPID, int dstPort) throws MalformedURLException, JSONException, IOException, RuntimeException{
+		return new JSONArray(RestUtils.doGet("http://" + controllerIp + ":8080/wm/topology/route/" + srcSwitchDPID + "/" + srcPort + "/" + dstSwitchDPID + "/" + dstPort + "/json"));
 	}
 	
 	//	/wm/device
@@ -269,4 +261,25 @@ public class FloodlightClient {
 		
 		return result.toString();
 	}
+	
+	//	-----------------------
+	//		Custom methods
+	//	-----------------------
+	
+	//	get all switch DPIDs of the network(mining from all switch informations)
+	public ArrayList<String> getSwitchesDPIDs() throws MalformedURLException, JSONException, IOException, RuntimeException{
+		ArrayList<String> result;
+		JSONArray allSwitchInformations;
+		
+		result = new ArrayList<String>(); 
+		allSwitchInformations = getSwitchesInformations();
+		
+		for(int i=0; i<allSwitchInformations.length(); i++){
+			result.add(allSwitchInformations.getJSONObject(i).getString("dpid"));
+		}
+		
+		return result;
+	}
+	
+	
 }
