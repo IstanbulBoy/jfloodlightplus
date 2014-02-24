@@ -18,6 +18,6 @@ public class ApplicationStarter {
             RuntimeException, JSONException {
         FloodlightClient fc = new FloodlightClient();
 
-        System.out.println(fc.getSwitchTrafficCounters("00:00:00:00:00:00:00:01", "all"));
+        System.out.println(fc.getDevices("dpid", "00:00:00:00:00:00:00:01"));
     }
 }

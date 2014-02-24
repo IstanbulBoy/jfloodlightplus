@@ -12,6 +12,10 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+/**
+ * @author floodlight
+ * 
+ */
 public class FloodlightClient {
     private static final String LOCALHOST = "127.0.0.1";
 
@@ -22,11 +26,19 @@ public class FloodlightClient {
     // constructors
     // ------------
 
+    /**
+     * Default constructor with ip=localhost
+     */
     public FloodlightClient() {
         this(LOCALHOST);
     }
 
-    // base constructor
+    /**
+     * Base constructor with ip parameter
+     * 
+     * @param ip
+     *            The controller ip address
+     */
     public FloodlightClient(String ip) {
         this.controllerIp = ip;
         this.uriPrefix = "http://" + controllerIp + ":8080";
@@ -198,76 +210,242 @@ public class FloodlightClient {
         return new JSONObject(RestUtils.doGet(uriPrefix + mountPoint));
     }
 
-    // FIXME: refactor the following methods
-    // /wm/core/memory/json
+    /**
+     * Current controller memory usage.
+     * 
+     * @return Current controller memory usage
+     * 
+     * @throws MalformedURLException
+     * @throws JSONException
+     * @throws IOException
+     * @throws RuntimeException
+     */
     public JSONObject getControllerMemoryUsage() throws MalformedURLException,
             JSONException, IOException, RuntimeException {
-        return new JSONObject(RestUtils.doGet("http://" + controllerIp
-                + ":8080/wm/core/memory/json"));
+        String mountPoint = "/wm/core/memory/json";
+        return new JSONObject(RestUtils.doGet(uriPrefix + mountPoint));
     }
 
-    // /wm/topology/links/json
+    /**
+     * Status/Health of REST API <br>
+     * Wrapped in a more intuitive format in isRestApiHealthy()
+     * 
+     * @return JSONObject of Status/Health of REST API
+     * 
+     * @throws MalformedURLException
+     * @throws JSONException
+     * @throws IOException
+     * @throws RuntimeException
+     */
+    private JSONObject getRestApiHealthStatus() throws MalformedURLException,
+            JSONException, IOException, RuntimeException {
+        String mountPoint = "/wm/core/health/json";
+        return new JSONObject(RestUtils.doGet(uriPrefix + mountPoint));
+    }
+
+    /**
+     * Primitive boolean value of Status/Health of REST API
+     * 
+     * @return Primitive boolean value of Status/Health of REST API
+     * 
+     * @throws MalformedURLException
+     * @throws JSONException
+     * @throws IOException
+     * @throws RuntimeException
+     */
+    public boolean isRestApiHealthy() throws MalformedURLException, JSONException,
+            IOException, RuntimeException {
+        return getRestApiHealthStatus().getBoolean("healthy");
+    }
+
+    /**
+     * Controller uptime <br>
+     * Wrapped in a more intuitive format in getSystemUptimeMsec()
+     * 
+     * @return JSONObject of Controller uptime
+     * 
+     * @throws MalformedURLException
+     * @throws JSONException
+     * @throws IOException
+     * @throws RuntimeException
+     */
+    private JSONObject getSystemUptime() throws MalformedURLException, JSONException,
+            IOException, RuntimeException {
+        String mountPoint = "/wm/core/system/uptime/json";
+        return new JSONObject(RestUtils.doGet(uriPrefix + mountPoint));
+    }
+
+    /**
+     * Primitive long value in Msec of Controller uptime
+     * 
+     * @return Primitive long value in Msec of Controller uptime
+     * 
+     * @throws MalformedURLException
+     * @throws JSONException
+     * @throws IOException
+     * @throws RuntimeException
+     */
+    public long getSystemUptimeMsec() throws MalformedURLException, JSONException,
+            IOException, RuntimeException {
+        return getSystemUptime().getLong("systemUptimeMsec");
+    }
+
+    /**
+     * List all the inter-switch links. <br>
+     * Note that these are only for switches connected to the same controller. <br>
+     * This is not available in the 0.8 release.
+     * 
+     * @return all the inter-switch links
+     * 
+     * @throws MalformedURLException
+     * @throws IOException
+     * @throws RuntimeException
+     * @throws JSONException
+     */
     public JSONArray getInterSwitchLinks() throws MalformedURLException, IOException,
             RuntimeException, JSONException {
-        return new JSONArray(RestUtils.doGet("http://" + controllerIp
-                + ":8080/wm/topology/links/json"));
+        String mountPoint = "/wm/topology/links/json";
+        return new JSONArray(RestUtils.doGet(uriPrefix + mountPoint));
     }
 
-    // /wm/topology/switchclusters/json
+    /**
+     * List of all switch clusters connected to the controller. <br>
+     * This is not available in the 0.8 release.
+     * 
+     * @return all switch clusters connected to the controller
+     * 
+     * @throws MalformedURLException
+     * @throws IOException
+     * @throws RuntimeException
+     * @throws JSONException
+     */
     public JSONObject getSwitchClusters() throws MalformedURLException, IOException,
             RuntimeException, JSONException {
-        return new JSONObject(RestUtils.doGet("http://" + controllerIp
-                + ":8080/wm/topology/switchclusters/json"));
+        String mountPoint = "/wm/topology/switchclusters/json";
+        return new JSONObject(RestUtils.doGet(uriPrefix + mountPoint));
     }
 
-    // /wm/topology/external-links/json
+    /**
+     * Show "external" links <br>
+     * i.e., multi-hop links discovered by BDDP instead of LLDP packets
+     * 
+     * @return "external" links (multi-hop links discovered by BDDP)
+     * 
+     * @throws MalformedURLException
+     * @throws IOException
+     * @throws RuntimeException
+     * @throws JSONException
+     */
     public JSONArray getExternalLinks() throws MalformedURLException, IOException,
             RuntimeException, JSONException {
-        return new JSONArray(RestUtils.doGet("http://" + controllerIp
-                + ":8080/wm/topology/external-links/json"));
+        String mountPoint = "/wm/topology/external-links/json";
+        return new JSONArray(RestUtils.doGet(uriPrefix + mountPoint));
     }
 
-    // /wm/topology/links/json
-    public JSONArray getDirectTunnelLinks() throws MalformedURLException, IOException,
+    // FIXME: check mount point periodly to check correctness
+    /**
+     * Show DIRECT and TUNNEL links discovered based on LLDP packets <br>
+     * Same mount point as getInterSwitchLinks() in REST API doc webpage
+     * 
+     * @return DIRECT and TUNNEL links discovered based on LLDP packets
+     * @throws MalformedURLException
+     * @throws IOException
+     * @throws RuntimeException
+     * @throws JSONException
+     */
+    public JSONArray getDirectAndTunnelLinks() throws MalformedURLException, IOException,
             RuntimeException, JSONException {
-        return new JSONArray(RestUtils.doGet("http://" + controllerIp
-                + ":8080/wm/topology/links/json"));
+        String mountPoint = "/wm/topology/links/json";
+        return new JSONArray(RestUtils.doGet(uriPrefix + mountPoint));
     }
 
-    // /wm/topology/route
-    // not list in REST API page, but appears in CircuitPusher.py
-    public JSONArray getRoute(String srcSwitchDPID, int srcPort, String dstSwitchDPID,
-            int dstPort) throws MalformedURLException, JSONException, IOException,
+    /**
+     * Provides a route between srcPort on src and dstPort on dst. <br>
+     * Not list in REST API page, but appears in CircuitPusher.py
+     * 
+     * @param srcId
+     *            src Switch DPID
+     * @param srcPort
+     * @param dstId
+     *            dst Switch DPID
+     * @param dstPort
+     * 
+     * @return a route between srcPort on srcSwitch and dstPort on dstSwitch
+     * 
+     * @throws MalformedURLException
+     * @throws JSONException
+     * @throws IOException
+     * @throws RuntimeException
+     */
+    public JSONArray getRoute(String srcId, int srcPort, String dstId, int dstPort)
+            throws MalformedURLException, JSONException, IOException,
             RuntimeException {
-        return new JSONArray(RestUtils.doGet("http://" + controllerIp
-                + ":8080/wm/topology/route/" + srcSwitchDPID + "/" + srcPort + "/"
-                + dstSwitchDPID + "/" + dstPort + "/json"));
+        String mountPoint = "/wm/topology/route/" + srcId + "/" + srcPort + "/" + dstId
+                + "/" + dstPort + "/json";
+        return new JSONArray(RestUtils.doGet(uriPrefix + mountPoint));
     }
 
-    // /wm/device
-    public JSONArray getDevices(String mac, String ipv4, String vlan, String dpid,
-            String port) throws MalformedURLException, IOException, RuntimeException,
-            JSONException {
-        HashMap<String, String> paraMap;
-        paraMap = new HashMap<String, String>();
+    /**
+     * List of all devices (i.e. hosts, etc) tracked by the controller. <br>
+     * This includes MACs, IPs, and attachment points.
+     * 
+     * @param paraMap
+     *            Map of parameters to filter the devices <br>
+     * <br>
+     *            Passed as GET parameters: <br>
+     *            mac (colon-separated hex-encoded), <br>
+     *            ipv4 (dotted decimal), <br>
+     *            vlan, <br>
+     *            dpid (attachment point DPID) (colon-separated hex-encoded), <br>
+     *            port (the attachment point port). <br>
+     * 
+     * @return all devices (i.e. hosts, etc) tracked by the controller
+     * 
+     * @throws MalformedURLException
+     * @throws IOException
+     * @throws RuntimeException
+     * @throws JSONException
+     */
+    public JSONArray getDevices(Map<String, String> paraMap)
+            throws MalformedURLException, IOException, RuntimeException, JSONException {
+        String mountPoint = "/wm/device/";
+        return new JSONArray(RestUtils.doGet(uriPrefix + mountPoint, paraMap));
+    }
 
-        // set paraMap
-        paraMap.put("mac", mac);
-        paraMap.put("ipv4", ipv4);
-        paraMap.put("vlan", vlan);
-        paraMap.put("dpid", dpid);
-        paraMap.put("port", port);
+    /**
+     * List of all devices (i.e. hosts, etc) tracked by the controller. <br>
+     * This includes MACs, IPs, and attachment points.<br>
+     * <br>
+     * Parameters to filter the devices are listed below:<br>
+     * <b>mac</b> (colon-separated hex-encoded), <br>
+     * <b>ipv4</b> (dotted decimal), <br>
+     * <b>vlan</b>, <br>
+     * <b>dpid</b> (attachment point DPID) (colon-separated hex-encoded), <br>
+     * <b>port</b> (the attachment point port). <br>
+     * 
+     * @param key
+     *            Parameter key to filter the devices<br>
+     * 
+     * 
+     * @param value
+     *            Parameter value to filter the devices
+     * 
+     * @return all devices (i.e. hosts, etc) tracked by the controller
+     * 
+     * @throws MalformedURLException
+     * @throws IOException
+     * @throws RuntimeException
+     * @throws JSONException
+     */
+    public JSONArray getDevices(String key, String value) throws MalformedURLException,
+            IOException, RuntimeException, JSONException {
+        Map<String, String> paraMap = new HashMap<String, String>();
+        paraMap.put(key, value);
 
         return getDevices(paraMap);
     }
 
-    // /wm/device
-    // with Map as parameter, base case
-    public JSONArray getDevices(Map<String, String> paraMap)
-            throws MalformedURLException, IOException, RuntimeException, JSONException {
-        return new JSONArray(RestUtils.doGet("http://" + controllerIp
-                + ":8080/wm/device/", paraMap));
-    }
+    // FIXME: refactoring below
 
     // /wm/staticflowentrypusher/json
     // POST method
