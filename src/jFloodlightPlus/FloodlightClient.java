@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 import org.apache.http.client.ClientProtocolException;
 import org.json.JSONArray;
@@ -17,6 +18,9 @@ import org.json.JSONObject;
  * 
  */
 public class FloodlightClient {
+    private static final String ETHER_TYPE_IPV4 = "0x0800";
+    private static final String ETHER_TYPE_ARP = "0x0806";
+
     private static final String LOCALHOST = "127.0.0.1";
 
     private String controllerIp;
@@ -118,7 +122,7 @@ public class FloodlightClient {
      * @throws IOException
      * @throws RuntimeException
      */
-    public List<String> getSwitchesDPIDs() throws MalformedURLException,
+    public List<String> getAllSwitchDPIDs() throws MalformedURLException,
             JSONException, IOException, RuntimeException {
         ArrayList<String> result;
         JSONArray allSwitchInformations;
@@ -342,7 +346,7 @@ public class FloodlightClient {
         return new JSONArray(RestUtils.doGet(uriPrefix + mountPoint));
     }
 
-    // FIXME: check mount point periodly to check correctness
+    // FIXME: check mount point periodly for correctness
     /**
      * Show DIRECT and TUNNEL links discovered based on LLDP packets <br>
      * Same mount point as getInterSwitchLinks() in REST API doc webpage
@@ -445,49 +449,185 @@ public class FloodlightClient {
         return getDevices(paraMap);
     }
 
-    // FIXME: refactoring below
-
-    // /wm/staticflowentrypusher/json
-    // POST method
-    public JSONObject addStaticFlow(Map<String, String> paraMap)
+    /**
+     * General method to add a static flow entry
+     * 
+     * @param name
+     *            Name of the flow entry, this is the primary key, it MUST be unique
+     * @param paraMap
+     *            key/value pairs for flow entry, check <a target="_blank" href =
+     *            "http://docs.projectfloodlight.org/display/floodlightcontroller/Static+Flow+Pusher+API+%28New%29"
+     *            >here</a> for details.
+     * 
+     * @return if add OK, return JSONObject {"status":"Entry pushed"}
+     * 
+     * @throws MalformedURLException
+     * @throws IOException
+     * @throws RuntimeException
+     * @throws JSONException
+     */
+    public JSONObject addFlow(String name, Map<String, String> paraMap)
             throws MalformedURLException, IOException, RuntimeException, JSONException {
-        String paraString;
-        paraString = prepareStaticFlowEntriesParameterString(paraMap);
+        String mountPoint = "/wm/staticflowentrypusher/json";
 
-        return new JSONObject(RestUtils.doPost("http://" + controllerIp
-                + ":8080/wm/staticflowentrypusher/json", paraString));
+        // Force user to provide flowName in paras to avoid error
+        // If already provided in paraMap, just replace it with the one in para
+        paraMap.put("name", name);
+
+        return new JSONObject(RestUtils.doPost(uriPrefix + mountPoint,
+                toJSONString(paraMap)));
     }
 
-    // /wm/staticflowentrypusher/json
-    // DELETE method
-    public JSONObject deleteStaticFlow(String name) throws MalformedURLException,
-            IOException, RuntimeException, JSONException {
-        String paraString;
+    /**
+     * Simple method to add static IPv4 flow entry
+     * 
+     * @param name
+     *            Name of the flow entry, this is the primary key, it MUST be unique
+     * @param switchId
+     *            ID of the switch (data path) that this rule should be added to
+     *            xx:xx:xx:xx:xx:xx:xx:xx
+     * @param srcIp
+     *            xx.xx.xx.xx
+     * @param dstIp
+     *            xx.xx.xx.xx
+     * @param outputPort
+     *            port number to output
+     * 
+     * @return if add OK, return JSONObject {"status":"Entry pushed"}
+     * 
+     * @throws MalformedURLException
+     * @throws IOException
+     * @throws RuntimeException
+     * @throws JSONException
+     */
+    public JSONObject addIPv4Flow(String name, String switchId, String srcIp,
+            String dstIp, int outputPort) throws MalformedURLException, IOException,
+            RuntimeException, JSONException {
         Map<String, String> paraMap;
+        paraMap = new TreeMap<String, String>();
+
+        paraMap.put("switch", switchId);
+        paraMap.put("ether-type", ETHER_TYPE_IPV4);
+        paraMap.put("src-ip", srcIp);
+        paraMap.put("dst-ip", dstIp);
+        paraMap.put("actions", "output=" + outputPort);
+
+        return addFlow(name, paraMap);
+    }
+
+    // TODO: circuitpusher with getRoute and addIPv4Flow
+
+    /**
+     * Simple method to add static ARP flow entry with flood action
+     * 
+     * @param switchId
+     *            ID of the switch (data path) that this rule should be added to
+     *            xx:xx:xx:xx:xx:xx:xx:xx
+     * 
+     * @return if add OK, return JSONObject {"status":"Entry pushed"}
+     * 
+     * @throws MalformedURLException
+     * @throws IOException
+     * @throws RuntimeException
+     * @throws JSONException
+     */
+    public JSONObject addARPFloodFlow(String switchId) throws MalformedURLException,
+            IOException, RuntimeException, JSONException {
+        Map<String, String> paraMap;
+        paraMap = new TreeMap<String, String>();
+
+        paraMap.put("switch", switchId);
+        paraMap.put("ether-type", ETHER_TYPE_ARP);
+        paraMap.put("actions", "output=flood");
+
+        return addFlow(switchId + "_ARP_flood", paraMap);
+    }
+
+    /**
+     * Add static ARP flow entries with flood action on all switches
+     * 
+     * @return an JSONArray of many JSONObject {"status":"Entry pushed"}
+     * 
+     * @throws MalformedURLException
+     * @throws JSONException
+     * @throws IOException
+     * @throws RuntimeException
+     */
+    public JSONArray addAllARPFloodFlows() throws MalformedURLException, JSONException,
+            IOException, RuntimeException {
+        JSONArray results = new JSONArray();
+        List<String> switchIds = getAllSwitchDPIDs();
+
+        for (String switchId : switchIds) {
+            JSONObject result = addARPFloodFlow(switchId);
+            results.put(result);
+        }
+
+        return results;
+    }
+
+    /**
+     * Delete static flow
+     * 
+     * @param name
+     *            flow name to delete
+     * 
+     * @return if delete OK, return JSONObject {"status":"Entry FLOW_NAME deleted"}
+     * 
+     * @throws MalformedURLException
+     * @throws IOException
+     * @throws RuntimeException
+     * @throws JSONException
+     */
+    public JSONObject deleteFlow(String name) throws MalformedURLException, IOException,
+            RuntimeException, JSONException {
+        Map<String, String> paraMap;
+        String mountPoint = "/wm/staticflowentrypusher/json";
 
         paraMap = new HashMap<String, String>();
         paraMap.put("name", name);
 
-        paraString = prepareStaticFlowEntriesParameterString(paraMap);
-
-        return new JSONObject(RestUtils.doDelete("http://" + controllerIp
-                + ":8080/wm/staticflowentrypusher/json", paraString));
+        return new JSONObject(RestUtils.doDelete(uriPrefix + mountPoint,
+                toJSONString(paraMap)));
     }
 
-    // /wm/staticflowentrypusher/list/<switch>/json
-    public JSONObject getSwitchStaticFlows(String switchId) throws MalformedURLException,
+    /**
+     * List static flows for a switch or all switches
+     * 
+     * @param switchId
+     *            Valid Switch DPID (XX:XX:XX:XX:XX:XX:XX:XX) or "all"
+     * 
+     * @return static flow entries on a switch or all switches
+     * 
+     * @throws MalformedURLException
+     * @throws IOException
+     * @throws RuntimeException
+     * @throws JSONException
+     */
+    public JSONObject getFlows(String switchId) throws MalformedURLException,
             IOException, RuntimeException, JSONException {
-        return new JSONObject(RestUtils.doGet("http://" + controllerIp
-                + ":8080/wm/staticflowentrypusher/list/" + switchId + "/json"));
+        String mountPoint = "/wm/staticflowentrypusher/list/" + switchId + "/json";
+        return new JSONObject(RestUtils.doGet(uriPrefix + mountPoint));
     }
 
-    // /wm/staticflowentrypusher/clear/<switch>/json
-    // controller return: 204 no content with no response entity
-    public void clearSwitchStaticFlows(String switchId) throws MalformedURLException,
-            IOException, RuntimeException, JSONException {
-        RestUtils.doGet("http://" + controllerIp
-                + ":8080/wm/staticflowentrypusher/clear/" + switchId + "/json");
+    /**
+     * Clear static flows for a switch or all switches
+     * 
+     * @param switchId
+     *            Valid Switch DPID (XX:XX:XX:XX:XX:XX:XX:XX) or "all"
+     * 
+     * @throws MalformedURLException
+     * @throws IOException
+     * @throws RuntimeException
+     * @throws JSONException
+     */
+    public void clearFlows(String switchId) throws MalformedURLException, IOException,
+            RuntimeException, JSONException {
+        String mountPoint = "/wm/staticflowentrypusher/clear/" + switchId + "/json";
+        RestUtils.doGet(uriPrefix + mountPoint);
     }
+
+    // TODO: refactoring below when needed
 
     // /networkService/v1.1/tenants/{tenant}/networks/{network}
     // base POST method
@@ -505,7 +645,7 @@ public class FloodlightClient {
         paraMap.put("gateway", gatewayIp);
         paraMap.put("name", networkId);
 
-        paraString = prepareVirtualNetworkFilterParameterString("network", paraMap);
+        paraString = toJSONString("network", paraMap);
 
         return new JSONObject(RestUtils.doPost("http://" + controllerIp
                 + ":8080/networkService/v1.1/tenants/default/networks/" + networkId,
@@ -540,7 +680,7 @@ public class FloodlightClient {
         paraMap.put("gateway", gatewayIp);
         paraMap.put("name", networkId);
 
-        paraString = prepareVirtualNetworkFilterParameterString("network", paraMap);
+        paraString = toJSONString("network", paraMap);
 
         return new JSONObject(RestUtils.doPut("http://" + controllerIp
                 + ":8080/networkService/v1.1/tenants/default/networks/" + networkId,
@@ -584,7 +724,7 @@ public class FloodlightClient {
         paraMap.put("id", networkId);
         paraMap.put("mac", hostMac);
 
-        paraString = prepareVirtualNetworkFilterParameterString("attachment", paraMap);
+        paraString = toJSONString("attachment", paraMap);
 
         return new JSONObject(RestUtils.doPut("http://" + controllerIp
                 + ":8080/networkService/v1.1/tenants/default/networks/" + networkId
@@ -616,16 +756,13 @@ public class FloodlightClient {
     // helper methods
     // -----------------------
 
-    private String prepareStaticFlowEntriesParameterString(Map<String, String> paraMap) {
-        JSONObject result;
-        result = new JSONObject(paraMap);
-
-        return result.toString();
+    private String toJSONString(Map<String, String> paraMap) {
+        return new JSONObject(paraMap).toString();
     }
 
     // type: network or attachment
-    private String prepareVirtualNetworkFilterParameterString(String type,
-            Map<String, String> paraMap) throws JSONException {
+    private String toJSONString(String type, Map<String, String> paraMap)
+            throws JSONException {
         JSONObject result;
 
         result = new JSONObject();
