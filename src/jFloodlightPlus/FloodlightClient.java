@@ -516,6 +516,49 @@ public class FloodlightClient {
     }
 
     // TODO: circuitpusher with getRoute and addIPv4Flow
+    // check NO IP in 2k-fattree problem
+    public JSONArray pushCircuit(String namePrefix, String srcIp, String dstIp)
+            throws MalformedURLException, JSONException, IOException, RuntimeException {
+        JSONObject srcAp, dstAp;
+        JSONArray route, results;
+
+        // init results
+        results = new JSONArray();
+
+        // get attachmentPoints of these hosts
+        srcAp = getDevices("ipv4", srcIp).getJSONObject(0).getJSONArray(
+                "attachmentPoint").getJSONObject(0);
+        dstAp = getDevices("ipv4", dstIp).getJSONObject(0).getJSONArray(
+                "attachmentPoint").getJSONObject(0);
+
+        // get default route between these attachmentPoints
+        route = getRoute(srcAp.getString("switchDPID"), srcAp.getInt("port"),
+                dstAp.getString("switchDPID"), dstAp.getInt("port"));
+
+        // add IPv4 flow entries along the path
+        for (int i = 0; i < route.length(); i += 2) {
+            String flowName, switchId;
+            JSONObject result, fnc, rnc;    // nc means nodeConnector in Opendaylight
+
+            // read data from default route
+            rnc = route.getJSONObject(i);
+            fnc = route.getJSONObject(i + 1);
+
+            // set forward flow entry
+            switchId = fnc.getString("switch");
+            flowName = "circuit_" + namePrefix + "_" + switchId + "_forward";
+            result = addIPv4Flow(flowName, switchId, srcIp, dstIp, fnc.getInt("port"));
+            results.put(result);
+
+            // set reverse flow entry
+            switchId = rnc.getString("switch");
+            flowName = "circuit_" + namePrefix + "_" + switchId + "_reverse";
+            result = addIPv4Flow(flowName, switchId, dstIp, srcIp, rnc.getInt("port"));
+            results.put(result);
+        }
+
+        return results;
+    }
 
     /**
      * Simple method to add static ARP flow entry with flood action
