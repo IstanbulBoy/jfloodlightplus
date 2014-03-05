@@ -14,7 +14,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 /**
- * @author floodlight
+ * @author KmnTree
  * 
  */
 public class FloodlightClient {
