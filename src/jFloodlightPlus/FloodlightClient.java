@@ -515,8 +515,29 @@ public class FloodlightClient {
         return addFlow(name, paraMap);
     }
 
-    // TODO: circuitpusher with getRoute and addIPv4Flow
-    // check NO IP in 2k-fattree problem
+    /**
+     * Push circuit between two hosts according to their IPs, <br>
+     * using the getRoute method to get the route from controller. <br>
+     * <br>
+     * The name of each flow entries will be generated in the format of
+     * circuit_namePrefix_switchId_direction. <br>
+     * Direction could be forward or reverse.
+     * 
+     * @param namePrefix
+     *            name of the circuit
+     * @param srcIp
+     *            xx.xx.xx.xx
+     * @param dstIp
+     *            xx.xx.xx.xx
+     * 
+     * @return if add OK, return a JSONArray, which contains many JSONObjects
+     *         {"status":"Entry pushed"}
+     * 
+     * @throws MalformedURLException
+     * @throws JSONException
+     * @throws IOException
+     * @throws RuntimeException
+     */
     public JSONArray pushCircuit(String namePrefix, String srcIp, String dstIp)
             throws MalformedURLException, JSONException, IOException, RuntimeException {
         JSONObject srcAp, dstAp;
