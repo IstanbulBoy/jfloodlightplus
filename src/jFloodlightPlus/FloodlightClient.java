@@ -18,6 +18,8 @@ import org.json.JSONObject;
  * 
  */
 public class FloodlightClient {
+    private static final int DEFAULT_PRIORITY = 32767;
+
     private static final String ETHER_TYPE_IPV4 = "0x0800";
     private static final String ETHER_TYPE_ARP = "0x0806";
 
@@ -241,7 +243,7 @@ public class FloodlightClient {
      * @throws IOException
      * @throws RuntimeException
      */
-    private JSONObject getRestApiHealthStatus() throws MalformedURLException,
+    public JSONObject getRestApiHealthStatus() throws MalformedURLException,
             JSONException, IOException, RuntimeException {
         String mountPoint = "/wm/core/health/json";
         return new JSONObject(RestUtils.doGet(uriPrefix + mountPoint));
@@ -273,7 +275,7 @@ public class FloodlightClient {
      * @throws IOException
      * @throws RuntimeException
      */
-    private JSONObject getSystemUptime() throws MalformedURLException, JSONException,
+    public JSONObject getSystemUptime() throws MalformedURLException, JSONException,
             IOException, RuntimeException {
         String mountPoint = "/wm/core/system/uptime/json";
         return new JSONObject(RestUtils.doGet(uriPrefix + mountPoint));
@@ -479,7 +481,49 @@ public class FloodlightClient {
     }
 
     /**
-     * Simple method to add static IPv4 flow entry
+     * Simple method to add static IPv4 flow entry with custom priority
+     * 
+     * @param name
+     *            Name of the flow entry, this is the primary key, it MUST be unique
+     * @param switchId
+     *            ID of the switch (data path) that this rule should be added to
+     *            xx:xx:xx:xx:xx:xx:xx:xx
+     * @param srcIp
+     *            xx.xx.xx.xx
+     * @param dstIp
+     *            xx.xx.xx.xx
+     * @param outputPort
+     *            port number to output
+     * @param priority
+     *            default is 32767 <br>
+     *            maximum value is 32767
+     * 
+     * @return if add OK, return JSONObject {"status":"Entry pushed"}
+     * 
+     * @throws MalformedURLException
+     * @throws IOException
+     * @throws RuntimeException
+     * @throws JSONException
+     */
+    public JSONObject addIPv4Flow(String name, String switchId, String srcIp,
+            String dstIp, int outputPort, int priority) throws MalformedURLException,
+            IOException,
+            RuntimeException, JSONException {
+        Map<String, String> paraMap;
+        paraMap = new TreeMap<String, String>();
+
+        paraMap.put("switch", switchId);
+        paraMap.put("ether-type", ETHER_TYPE_IPV4);
+        paraMap.put("src-ip", srcIp);
+        paraMap.put("dst-ip", dstIp);
+        paraMap.put("actions", "output=" + outputPort);
+        paraMap.put("priority", String.valueOf(priority));
+
+        return addFlow(name, paraMap);
+    }
+
+    /**
+     * Simple method to add static IPv4 flow entry with default priority
      * 
      * @param name
      *            Name of the flow entry, this is the primary key, it MUST be unique
@@ -503,16 +547,7 @@ public class FloodlightClient {
     public JSONObject addIPv4Flow(String name, String switchId, String srcIp,
             String dstIp, int outputPort) throws MalformedURLException, IOException,
             RuntimeException, JSONException {
-        Map<String, String> paraMap;
-        paraMap = new TreeMap<String, String>();
-
-        paraMap.put("switch", switchId);
-        paraMap.put("ether-type", ETHER_TYPE_IPV4);
-        paraMap.put("src-ip", srcIp);
-        paraMap.put("dst-ip", dstIp);
-        paraMap.put("actions", "output=" + outputPort);
-
-        return addFlow(name, paraMap);
+        return addIPv4Flow(name, switchId, srcIp, dstIp, outputPort, DEFAULT_PRIORITY);
     }
 
     /**
@@ -816,9 +851,9 @@ public class FloodlightClient {
                 + ":8080/networkService/v1.1/tenants/default/networks"));
     }
 
-    // -----------------------
+    // --------------
     // helper methods
-    // -----------------------
+    // --------------
 
     private String toJSONString(Map<String, String> paraMap) {
         return new JSONObject(paraMap).toString();
